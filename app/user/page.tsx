@@ -11,6 +11,7 @@ import {
   Clock,
   TrendingUp,
   AlertTriangle,
+  GraduationCap,
 } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
@@ -30,10 +31,16 @@ function UserDashboardContent() {
   const userProxyRequests = state.proxyRequests.filter((req) => req.userId === user.id)
   const userAttendance = state.attendanceRecords.filter((att) => att.userId === user.id)
   const userPayments = state.payments.filter((payment) => payment.userId === user.id)
+  const userTrainingRequests = state.trainingRequests.filter((req) => req.userId === user.id)
 
   // Calculate pending payments
   const pendingPayments = userPayments
     .filter((payment) => payment.status === "pending")
+    .reduce((sum, payment) => sum + payment.amount, 0)
+
+  // Calculate bonus earnings
+  const bonusEarnings = userPayments
+    .filter((payment) => payment.type === "task_bonus" && payment.status === "processed")
     .reduce((sum, payment) => sum + payment.amount, 0)
 
   const stats = [
@@ -57,6 +64,13 @@ function UserDashboardContent() {
       icon: Calendar,
       href: "/user/attendance",
       change: "92% rate",
+    },
+    {
+      title: "Bonus Earned",
+      value: `$${bonusEarnings}`,
+      icon: TrendingUp,
+      href: "/user/payments",
+      change: "This month",
     },
   ]
 
@@ -114,7 +128,7 @@ function UserDashboardContent() {
           )}
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
             {stats.map((stat, index) => (
               <Link key={stat.title} href={stat.href}>
                 <Card className="card-hover border-0 overflow-hidden group cursor-pointer">
@@ -166,8 +180,14 @@ function UserDashboardContent() {
                     View My Tasks
                   </Button>
                 </Link>
-                <Link href="/user/payments">
+                <Link href="/user/training">
                   <Button className="w-full justify-start bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 transition-all duration-300 transform hover:scale-105">
+                    <GraduationCap className="h-4 w-4 mr-2" />
+                    Request Training
+                  </Button>
+                </Link>
+                <Link href="/user/payments">
+                  <Button className="w-full justify-start bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 transition-all duration-300 transform hover:scale-105">
                     <DollarSign className="h-4 w-4 mr-2" />
                     View Payments
                   </Button>
@@ -203,6 +223,9 @@ function UserDashboardContent() {
                           <div>
                             <span className="text-sm font-medium text-gray-900 block">{task.title}</span>
                             <div className="text-xs text-gray-500">Due: {task.dueDate}</div>
+                            {task.bonusEarned && (
+                              <div className="text-xs text-green-600 font-medium">Bonus: ${task.bonusEarned}</div>
+                            )}
                           </div>
                         </div>
                         <Badge
@@ -230,6 +253,65 @@ function UserDashboardContent() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Training Requests Summary */}
+          {userTrainingRequests.length > 0 && (
+            <Card className="shadow-xl border-0 overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-green-500 to-teal-500 text-white">
+                <CardTitle className="text-white flex items-center">
+                  <GraduationCap className="h-5 w-5 mr-2" />
+                  Recent Training Requests
+                </CardTitle>
+                <CardDescription className="text-green-100">
+                  Your latest training and development activities
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 lg:p-6">
+                <div className="space-y-3">
+                  {userTrainingRequests.slice(0, 3).map((request) => (
+                    <div
+                      key={request.id}
+                      className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg"
+                    >
+                      <div className="flex items-center space-x-3">
+                        {request.type === "online" ? (
+                          <div className="p-2 bg-blue-100 rounded-lg">
+                            <GraduationCap className="h-4 w-4 text-blue-600" />
+                          </div>
+                        ) : (
+                          <div className="p-2 bg-green-100 rounded-lg">
+                            <GraduationCap className="h-4 w-4 text-green-600" />
+                          </div>
+                        )}
+                        <div>
+                          <span className="text-sm font-medium text-gray-900">{request.topic}</span>
+                          <div className="text-xs text-gray-500">{request.preferredDate}</div>
+                        </div>
+                      </div>
+                      <Badge
+                        className={`${
+                          request.status === "approved"
+                            ? "bg-green-500"
+                            : request.status === "rejected"
+                              ? "bg-red-500"
+                              : request.status === "completed"
+                                ? "bg-blue-500"
+                                : "bg-yellow-500"
+                        } text-white border-0 capitalize`}
+                      >
+                        {request.status}
+                      </Badge>
+                    </div>
+                  ))}
+                  <Link href="/user/training">
+                    <Button variant="outline" className="w-full mt-4">
+                      View All Training Requests
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </main>
     </div>

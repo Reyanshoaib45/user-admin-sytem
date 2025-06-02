@@ -1,64 +1,35 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useApp } from "@/lib/context/app-context"
 
-export function useAuth(requiredRole?: "admin" | "user") {
+export function useAuth(requiredRole?: "admin" | "user" | "hr") {
   const { state, dispatch } = useApp()
-  const [isLoading, setIsLoading] = useState(true)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
-    const checkAuth = () => {
-      try {
-        const userData = localStorage.getItem("currentUser")
-
-        if (!userData) {
-          setIsAuthenticated(false)
-          setIsLoading(false)
-          router.push("/login")
-          return
-        }
-
-        const parsedUser = JSON.parse(userData)
-
-        // Validate user data structure
-        if (!parsedUser.id || !parsedUser.email || !parsedUser.role) {
-          localStorage.removeItem("currentUser")
-          setIsAuthenticated(false)
-          setIsLoading(false)
-          router.push("/login")
-          return
-        }
-
-        // Check if user role matches required role
-        if (requiredRole && parsedUser.role !== requiredRole) {
-          setIsAuthenticated(false)
-          setIsLoading(false)
-          router.push("/login")
-          return
-        }
-
-        // Set user in context if not already set
-        if (!state.currentUser || state.currentUser.id !== parsedUser.id) {
-          dispatch({ type: "SET_CURRENT_USER", payload: parsedUser })
-        }
-
-        setIsAuthenticated(true)
-        setIsLoading(false)
-      } catch (error) {
-        console.error("Auth check error:", error)
-        localStorage.removeItem("currentUser")
-        setIsAuthenticated(false)
-        setIsLoading(false)
-        router.push("/login")
+    const userData = localStorage.getItem("currentUser")
+    if (userData) {
+      const parsedUser = JSON.parse(userData)
+      if (!state.currentUser) {
+        dispatch({ type: "SET_CURRENT_USER", payload: parsedUser })
       }
-    }
 
-    checkAuth()
-  }, [requiredRole, router, dispatch, state.currentUser])
+      // Check if user needs onboarding
+      if (parsedUser.role === "user" && !parsedUser.isOnboarded && window.location.pathname !== "/user/onboarding") {
+        router.push("/user/onboarding")
+        return
+      }
+
+      if (requiredRole && parsedUser.role !== requiredRole) {
+        router.push("/login")
+        return
+      }
+    } else if (requiredRole) {
+      router.push("/login")
+    }
+  }, [state.currentUser, dispatch, router, requiredRole])
 
   const logout = () => {
     localStorage.removeItem("currentUser")
@@ -68,8 +39,7 @@ export function useAuth(requiredRole?: "admin" | "user") {
 
   return {
     user: state.currentUser,
-    isLoading,
-    isAuthenticated,
     logout,
+    isAuthenticated: !!state.currentUser,
   }
 }

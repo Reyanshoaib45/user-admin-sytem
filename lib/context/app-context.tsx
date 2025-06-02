@@ -7,10 +7,11 @@ interface User {
   id: string
   name: string
   email: string
-  role: "admin" | "user" | "all-in-department"
+  phone?: string
+  role: "admin" | "user" | "hr" | "all-in-department"
   department?: string
   joinDate: string
-  status: "active" | "inactive"
+  status: "active" | "inactive" | "pending"
   disableMessage?: string
   personalWarning?: string
   timeShift?: "morning" | "evening" | "night" | "flexible"
@@ -18,7 +19,15 @@ interface User {
     start: string // "09:00"
     end: string // "17:00"
   }
-  password?: string // For demo purposes - in real app this would be hashed
+  password?: string
+  isOnboarded?: boolean
+  workPreferences?: {
+    dailyHours: number
+    dailyTaskTarget: number
+  }
+  managerId?: string
+  referredBy?: string // ID of user who referred this user
+  referralCode?: string // Unique referral code for this user
 }
 
 interface Task {
@@ -34,6 +43,9 @@ interface Task {
   completedDate?: string
   progress: number
   createdBy: string
+  estimatedHours?: number
+  actualHours?: number
+  bonusEarned?: number
 }
 
 interface ProxyRequest {
@@ -56,13 +68,15 @@ interface Payment {
   userId: string
   userName: string
   amount: number
-  type: "proxy" | "salary" | "bonus" | "overtime"
+  type: "proxy" | "salary" | "bonus" | "overtime" | "task_bonus" | "referral_bonus"
   status: "pending" | "processed" | "failed"
   description: string
   createdDate: string
   processedDate?: string
   paymentMethod?: "bank_transfer" | "cash" | "check"
   referenceNumber?: string
+  taskId?: string
+  referralId?: string
 }
 
 interface AttendanceRecord {
@@ -95,6 +109,66 @@ interface LeaveRequest {
   totalDays: number
 }
 
+interface SignupRequest {
+  id: string
+  email: string
+  phone: string
+  status: "pending" | "approved" | "rejected"
+  submittedDate: string
+  processedBy?: string
+  processedDate?: string
+  rejectionReason?: string
+  referralCode?: string // Code used during signup
+  referredBy?: string // ID of referring user
+}
+
+interface TrainingRequest {
+  id: string
+  userId: string
+  userName: string
+  type: "online" | "physical"
+  topic: string
+  description: string
+  preferredDate: string
+  preferredTime: string
+  status: "pending" | "approved" | "rejected" | "completed"
+  managerId?: string
+  managerName?: string
+  requestDate: string
+  approvedDate?: string
+  meetingLink?: string
+  location?: string
+  notes?: string
+}
+
+interface Referral {
+  id: string
+  referrerId: string // User who made the referral
+  referrerName: string
+  referredUserId?: string // User who was referred (after signup approval)
+  referredEmail: string
+  referralCode: string
+  status: "pending" | "signed_up" | "activated" | "bonus_paid"
+  signupDate?: string
+  activationDate?: string
+  bonusPaidDate?: string
+  bonusAmount?: number
+}
+
+interface BonusSettings {
+  taskCompletionBonus: number
+  earlyCompletionMultiplier: number
+  qualityBonusMultiplier: number
+  isEnabled: boolean
+}
+
+interface ReferralSettings {
+  isEnabled: boolean
+  bonusAmount: number // Amount paid for successful referral
+  minimumActiveDays: number // Days new user must be active before bonus is paid
+  maxReferralsPerUser: number // Maximum referrals per user per month
+}
+
 interface AppState {
   currentUser: User | null
   users: User[]
@@ -103,13 +177,24 @@ interface AppState {
   payments: Payment[]
   attendanceRecords: AttendanceRecord[]
   leaveRequests: LeaveRequest[]
+  signupRequests: SignupRequest[]
+  trainingRequests: TrainingRequest[]
+  referrals: Referral[]
+  bonusSettings: BonusSettings
+  referralSettings: ReferralSettings
   proxyRate: number
   isLoading: boolean
   warningMessage: string
   attendanceSettings: {
     workingHours: { start: string; end: string }
-    lateThreshold: number // minutes
-    halfDayThreshold: number // hours
+    lateThreshold: number
+    halfDayThreshold: number
+  }
+  paymentInfo: {
+    baseSalary: number
+    hourlyRate: number
+    overtimeRate: number
+    taskCompletionRate: number
   }
 }
 
@@ -129,10 +214,27 @@ type AppAction =
   | { type: "UPDATE_ATTENDANCE"; payload: AttendanceRecord }
   | { type: "ADD_LEAVE_REQUEST"; payload: LeaveRequest }
   | { type: "UPDATE_LEAVE_REQUEST"; payload: LeaveRequest }
+  | { type: "ADD_SIGNUP_REQUEST"; payload: SignupRequest }
+  | { type: "UPDATE_SIGNUP_REQUEST"; payload: SignupRequest }
+  | { type: "ADD_TRAINING_REQUEST"; payload: TrainingRequest }
+  | { type: "UPDATE_TRAINING_REQUEST"; payload: TrainingRequest }
+  | { type: "ADD_REFERRAL"; payload: Referral }
+  | { type: "UPDATE_REFERRAL"; payload: Referral }
+  | { type: "UPDATE_BONUS_SETTINGS"; payload: BonusSettings }
+  | { type: "UPDATE_REFERRAL_SETTINGS"; payload: ReferralSettings }
   | { type: "SET_PROXY_RATE"; payload: number }
   | { type: "SET_WARNING_MESSAGE"; payload: string }
   | { type: "SET_LOADING"; payload: boolean }
   | { type: "LOAD_DATA"; payload: Partial<AppState> }
+
+// Generate unique referral code
+function generateReferralCode(name: string): string {
+  const cleanName = name.replace(/\s+/g, "").toUpperCase()
+  const randomNum = Math.floor(Math.random() * 9999)
+    .toString()
+    .padStart(4, "0")
+  return `${cleanName.slice(0, 4)}${randomNum}`
+}
 
 const initialState: AppState = {
   currentUser: null,
@@ -147,6 +249,8 @@ const initialState: AppState = {
       status: "active",
       workingHours: { start: "09:00", end: "17:00" },
       password: "Reyan123@",
+      isOnboarded: true,
+      referralCode: "REYA0001",
     },
     {
       id: "admin-2",
@@ -158,6 +262,22 @@ const initialState: AppState = {
       status: "active",
       workingHours: { start: "09:00", end: "17:00" },
       password: "Samad123@",
+      isOnboarded: true,
+      referralCode: "ABDU0002",
+    },
+    {
+      id: "hr-1",
+      name: "HR Manager",
+      email: "hr@company.com",
+      phone: "03199759407",
+      role: "hr",
+      department: "Human Resources",
+      joinDate: "2024-01-01",
+      status: "active",
+      workingHours: { start: "09:00", end: "17:00" },
+      password: "HR123@",
+      isOnboarded: true,
+      referralCode: "HRMA0003",
     },
   ],
   tasks: [],
@@ -165,13 +285,34 @@ const initialState: AppState = {
   payments: [],
   attendanceRecords: [],
   leaveRequests: [],
+  signupRequests: [],
+  trainingRequests: [],
+  referrals: [],
+  bonusSettings: {
+    taskCompletionBonus: 100,
+    earlyCompletionMultiplier: 1.5,
+    qualityBonusMultiplier: 2.0,
+    isEnabled: true,
+  },
+  referralSettings: {
+    isEnabled: true,
+    bonusAmount: 500,
+    minimumActiveDays: 30,
+    maxReferralsPerUser: 5,
+  },
   proxyRate: 50,
   isLoading: false,
   warningMessage: "",
   attendanceSettings: {
     workingHours: { start: "09:00", end: "17:00" },
-    lateThreshold: 15, // 15 minutes
-    halfDayThreshold: 4, // 4 hours
+    lateThreshold: 15,
+    halfDayThreshold: 4,
+  },
+  paymentInfo: {
+    baseSalary: 50000,
+    hourlyRate: 300,
+    overtimeRate: 450,
+    taskCompletionRate: 500,
   },
 }
 
@@ -180,11 +321,16 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case "SET_CURRENT_USER":
       return { ...state, currentUser: action.payload }
     case "ADD_USER":
-      return { ...state, users: [...state.users, action.payload] }
+      const newUser = {
+        ...action.payload,
+        referralCode: action.payload.referralCode || generateReferralCode(action.payload.name),
+      }
+      return { ...state, users: [...state.users, newUser] }
     case "UPDATE_USER":
       return {
         ...state,
         users: state.users.map((user) => (user.id === action.payload.id ? action.payload : user)),
+        currentUser: state.currentUser?.id === action.payload.id ? action.payload : state.currentUser,
       }
     case "DELETE_USER":
       return { ...state, users: state.users.filter((user) => user.id !== action.payload) }
@@ -225,6 +371,31 @@ function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         leaveRequests: state.leaveRequests.map((req) => (req.id === action.payload.id ? action.payload : req)),
       }
+    case "ADD_SIGNUP_REQUEST":
+      return { ...state, signupRequests: [...state.signupRequests, action.payload] }
+    case "UPDATE_SIGNUP_REQUEST":
+      return {
+        ...state,
+        signupRequests: state.signupRequests.map((req) => (req.id === action.payload.id ? action.payload : req)),
+      }
+    case "ADD_TRAINING_REQUEST":
+      return { ...state, trainingRequests: [...state.trainingRequests, action.payload] }
+    case "UPDATE_TRAINING_REQUEST":
+      return {
+        ...state,
+        trainingRequests: state.trainingRequests.map((req) => (req.id === action.payload.id ? action.payload : req)),
+      }
+    case "ADD_REFERRAL":
+      return { ...state, referrals: [...state.referrals, action.payload] }
+    case "UPDATE_REFERRAL":
+      return {
+        ...state,
+        referrals: state.referrals.map((ref) => (ref.id === action.payload.id ? action.payload : ref)),
+      }
+    case "UPDATE_BONUS_SETTINGS":
+      return { ...state, bonusSettings: action.payload }
+    case "UPDATE_REFERRAL_SETTINGS":
+      return { ...state, referralSettings: action.payload }
     case "SET_PROXY_RATE":
       return { ...state, proxyRate: action.payload }
     case "SET_WARNING_MESSAGE":
@@ -268,9 +439,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       payments: state.payments,
       attendanceRecords: state.attendanceRecords,
       leaveRequests: state.leaveRequests,
+      signupRequests: state.signupRequests,
+      trainingRequests: state.trainingRequests,
+      referrals: state.referrals,
+      bonusSettings: state.bonusSettings,
+      referralSettings: state.referralSettings,
       proxyRate: state.proxyRate,
       warningMessage: state.warningMessage,
       attendanceSettings: state.attendanceSettings,
+      paymentInfo: state.paymentInfo,
     }
     localStorage.setItem("appData", JSON.stringify(dataToSave))
   }, [
@@ -280,9 +457,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     state.payments,
     state.attendanceRecords,
     state.leaveRequests,
+    state.signupRequests,
+    state.trainingRequests,
+    state.referrals,
+    state.bonusSettings,
+    state.referralSettings,
     state.proxyRate,
     state.warningMessage,
     state.attendanceSettings,
+    state.paymentInfo,
   ])
 
   return <AppContext.Provider value={{ state, dispatch }}>{children}</AppContext.Provider>
@@ -296,4 +479,16 @@ export function useApp() {
   return context
 }
 
-export type { User, Task, ProxyRequest, Payment, AttendanceRecord, LeaveRequest }
+export type {
+  User,
+  Task,
+  ProxyRequest,
+  Payment,
+  AttendanceRecord,
+  LeaveRequest,
+  SignupRequest,
+  TrainingRequest,
+  Referral,
+  BonusSettings,
+  ReferralSettings,
+}

@@ -10,8 +10,9 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useApp } from "@/lib/context/app-context"
-import { Eye, EyeOff, Loader2, Sparkles, AlertCircle } from "lucide-react"
+import { Eye, EyeOff, Loader2, Sparkles, AlertCircle, UserPlus } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import Link from "next/link"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -60,6 +61,12 @@ export default function LoginPage() {
       return
     }
 
+    if (foundUser.status === "pending") {
+      setError("Your account is pending approval. Please contact HR at 03199759407.")
+      setIsLoading(false)
+      return
+    }
+
     // Successful login
     dispatch({ type: "SET_CURRENT_USER", payload: foundUser })
     localStorage.setItem("currentUser", JSON.stringify(foundUser))
@@ -67,6 +74,8 @@ export default function LoginPage() {
     // Redirect based on role
     if (foundUser.role === "admin") {
       router.push("/admin")
+    } else if (foundUser.role === "hr") {
+      router.push("/hr")
     } else {
       router.push("/user")
     }
@@ -156,6 +165,7 @@ export default function LoginPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="hr">HR</SelectItem>
                   <SelectItem value="user">User</SelectItem>
                   <SelectItem value="all-in-department">All in Department</SelectItem>
                   <SelectItem value="Engineering">Engineering</SelectItem>
@@ -184,12 +194,22 @@ export default function LoginPage() {
               )}
             </Button>
           </form>
+
+          <div className="text-center">
+            <p className="text-white/60 text-sm mb-2">Don't have an account?</p>
+            <Link href="/signup">
+              <Button variant="outline" className="w-full bg-white/10 border-white/20 text-white hover:bg-white/20">
+                <UserPlus className="mr-2 h-4 w-4" />
+                Sign Up
+              </Button>
+            </Link>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Footer - Only one instance */}
+      {/* Footer */}
       <footer className="absolute bottom-4 text-center text-white/60 text-sm z-10">
-        <p>Developed by M Reyan Shoaib</p>
+        <p>For creation of account contact our HR 03199759407</p>
       </footer>
     </div>
   )

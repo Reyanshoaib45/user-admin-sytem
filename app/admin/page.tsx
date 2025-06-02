@@ -1,83 +1,160 @@
 "use client"
 
-import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Users, DollarSign, ClipboardList, Calendar, LogOut, TrendingUp, Activity, Settings } from "lucide-react"
+import {
+  Users,
+  ClipboardList,
+  DollarSign,
+  Calendar,
+  Settings,
+  AlertTriangle,
+  TrendingUp,
+  Award,
+  Gift,
+  GraduationCap,
+  LogOut,
+} from "lucide-react"
 import Link from "next/link"
+import { Badge } from "@/components/ui/badge"
 import { useApp } from "@/lib/context/app-context"
 import { useAuth } from "@/lib/hooks/use-auth"
 import { ProtectedRoute } from "@/components/auth/protected-route"
 
 function AdminDashboardContent() {
-  const { state, dispatch } = useApp()
+  const { state } = useApp()
   const { user, logout } = useAuth("admin")
-  const [warningMessage, setWarningMessage] = useState(state.warningMessage)
 
   if (!user) return null
 
-  const handleUpdateWarningMessage = () => {
-    dispatch({ type: "SET_WARNING_MESSAGE", payload: warningMessage })
-  }
+  const totalUsers = state.users.filter((u) => u.role === "user").length
+  const activeUsers = state.users.filter((u) => u.role === "user" && u.status === "active").length
+  const totalTasks = state.tasks.length
+  const pendingTasks = state.tasks.filter((t) => t.status === "pending").length
+  const totalPayments = state.payments.reduce((sum, p) => sum + p.amount, 0)
+  const pendingPayments = state.payments.filter((p) => p.status === "pending").length
+  const totalReferrals = state.referrals.length
+  const pendingSignups = state.signupRequests.filter((s) => s.status === "pending").length
+  const pendingTraining = state.trainingRequests.filter((t) => t.status === "pending").length
 
-  const stats = [
+  const quickStats = [
     {
       title: "Total Users",
-      value: state.users.filter((u) => u.role === "user").length,
+      value: `${activeUsers}/${totalUsers}`,
       icon: Users,
       href: "/admin/users",
-      gradient: "from-blue-500 to-cyan-500",
-      change: "+12%",
-    },
-    {
-      title: "Proxy Requests",
-      value: state.proxyRequests.length,
-      icon: DollarSign,
-      href: "/admin/proxies",
-      gradient: "from-green-500 to-emerald-500",
-      change: "+8%",
+      change: `${state.users.filter((u) => u.status === "pending").length} pending`,
+      color: "blue",
     },
     {
       title: "Active Tasks",
-      value: state.tasks.filter((t) => t.status !== "completed").length,
+      value: `${pendingTasks}/${totalTasks}`,
       icon: ClipboardList,
       href: "/admin/tasks",
-      gradient: "from-purple-500 to-pink-500",
-      change: "+15%",
+      change: `${state.tasks.filter((t) => t.status === "completed").length} completed`,
+      color: "green",
     },
     {
-      title: "Attendance Today",
-      value: `${state.attendanceRecords.filter((a) => a.date === new Date().toISOString().split("T")[0]).length}/${state.users.filter((u) => u.role === "user").length}`,
-      icon: Calendar,
-      href: "/admin/attendance",
-      gradient: "from-orange-500 to-red-500",
-      change: "+5%",
+      title: "Total Payments",
+      value: `$${totalPayments}`,
+      icon: DollarSign,
+      href: "/admin/payments",
+      change: `${pendingPayments} pending`,
+      color: "purple",
+    },
+    {
+      title: "Referrals",
+      value: totalReferrals,
+      icon: Gift,
+      href: "/admin/referrals",
+      change: `${state.referrals.filter((r) => r.status === "activated").length} active`,
+      color: "pink",
     },
   ]
 
-  const recentActivities = [
-    { id: 1, action: "New user registration", time: "2 min ago", type: "user" },
+  const managementCards = [
     {
-      id: 2,
-      action: `Proxy request from ${state.proxyRequests[state.proxyRequests.length - 1]?.userName || "User"}`,
-      time: "5 min ago",
-      type: "proxy",
+      title: "User Management",
+      description: "Manage users, roles, and permissions",
+      icon: Users,
+      href: "/admin/users",
+      badge: state.users.filter((u) => u.status === "pending").length,
+      color: "from-blue-500 to-cyan-500",
     },
-    { id: 3, action: "Task completion notification", time: "10 min ago", type: "task" },
-    { id: 4, action: "Attendance marked", time: "15 min ago", type: "attendance" },
+    {
+      title: "Task Management",
+      description: "Create and assign tasks to users",
+      icon: ClipboardList,
+      href: "/admin/tasks",
+      badge: pendingTasks,
+      color: "from-green-500 to-emerald-500",
+    },
+    {
+      title: "Payment Management",
+      description: "Handle payments and financial records",
+      icon: DollarSign,
+      href: "/admin/payments",
+      badge: pendingPayments,
+      color: "from-purple-500 to-violet-500",
+    },
+    {
+      title: "Attendance Records",
+      description: "Monitor attendance and leave requests",
+      icon: Calendar,
+      href: "/admin/attendance",
+      badge: state.leaveRequests.filter((l) => l.status === "pending").length,
+      color: "from-orange-500 to-red-500",
+    },
+    {
+      title: "Proxy Requests",
+      description: "Review and approve proxy requests",
+      icon: AlertTriangle,
+      href: "/admin/proxies",
+      badge: state.proxyRequests.filter((p) => p.status === "pending").length,
+      color: "from-yellow-500 to-orange-500",
+    },
+    {
+      title: "Training Requests",
+      description: "Manage training and development requests",
+      icon: GraduationCap,
+      href: "/admin/training-requests",
+      badge: pendingTraining,
+      color: "from-indigo-500 to-blue-500",
+    },
+    {
+      title: "Referral Program",
+      description: "Manage referrals and bonus payments",
+      icon: Gift,
+      href: "/admin/referrals",
+      badge: state.referrals.filter((r) => r.status === "activated").length,
+      color: "from-pink-500 to-rose-500",
+    },
+    {
+      title: "Bonus Settings",
+      description: "Configure task completion bonuses",
+      icon: Award,
+      href: "/admin/bonus-settings",
+      badge: state.bonusSettings.isEnabled ? "ON" : "OFF",
+      color: "from-teal-500 to-cyan-500",
+    },
+    {
+      title: "Referral Settings",
+      description: "Configure referral program settings",
+      icon: Settings,
+      href: "/admin/referral-settings",
+      badge: state.referralSettings.isEnabled ? "ON" : "OFF",
+      color: "from-violet-500 to-purple-500",
+    },
   ]
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      {/* Header */}
       <header className="bg-white/80 backdrop-blur-lg shadow-lg border-b border-gray-200/50 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4 lg:py-6">
             <div className="flex items-center space-x-4">
               <div className="w-10 h-10 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
-                <Activity className="h-6 w-6 text-white" />
+                <Settings className="h-6 w-6 text-white" />
               </div>
               <h1 className="text-2xl lg:text-3xl font-bold gradient-text">Admin Dashboard</h1>
             </div>
@@ -85,6 +162,7 @@ function AdminDashboardContent() {
               <div className="hidden sm:block text-right">
                 <p className="text-sm text-gray-500">Welcome back,</p>
                 <p className="text-gray-700 font-medium">{user.name}</p>
+                <p className="text-xs text-gray-500">Administrator</p>
               </div>
               <Button
                 onClick={logout}
@@ -101,51 +179,17 @@ function AdminDashboardContent() {
       </header>
 
       <main className="max-w-7xl mx-auto py-4 lg:py-8 px-4 sm:px-6 lg:px-8">
-        <div className="space-y-6">
-          {/* Warning Message Settings */}
-          <Card className="shadow-xl border-0 overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
-              <CardTitle className="text-white flex items-center">
-                <Settings className="h-5 w-5 mr-2" />
-                System Warning Message
-              </CardTitle>
-              <CardDescription className="text-orange-100">Set a warning message for all users</CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 lg:p-6">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="warningMessage" className="text-sm font-medium text-gray-700">
-                    Warning Message
-                  </Label>
-                  <Textarea
-                    id="warningMessage"
-                    value={warningMessage}
-                    onChange={(e) => setWarningMessage(e.target.value)}
-                    placeholder="Enter a warning message to display to all users (leave empty to disable)"
-                    rows={3}
-                    className="transition-all duration-200 focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-                <Button
-                  onClick={handleUpdateWarningMessage}
-                  className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
-                >
-                  Update Warning Message
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
-            {stats.map((stat, index) => (
+        <div className="space-y-8">
+          {/* Quick Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+            {quickStats.map((stat, index) => (
               <Link key={stat.title} href={stat.href}>
                 <Card className="card-hover border-0 overflow-hidden group cursor-pointer">
-                  <div className={`h-1 bg-gradient-to-r ${stat.gradient}`}></div>
+                  <div className={`h-1 bg-gradient-to-r from-${stat.color}-500 to-${stat.color}-600`}></div>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-gray-600">{stat.title}</CardTitle>
                     <div
-                      className={`p-2 lg:p-3 rounded-lg bg-gradient-to-r ${stat.gradient} text-white group-hover:scale-110 transition-transform duration-300`}
+                      className={`p-2 lg:p-3 rounded-lg bg-gradient-to-r from-${stat.color}-500 to-${stat.color}-600 text-white group-hover:scale-110 transition-transform duration-300`}
                     >
                       <stat.icon className="h-4 w-4 lg:h-5 lg:w-5" />
                     </div>
@@ -153,7 +197,7 @@ function AdminDashboardContent() {
                   <CardContent>
                     <div className="flex items-center justify-between">
                       <div className="text-xl lg:text-2xl font-bold text-gray-900">{stat.value}</div>
-                      <div className="flex items-center text-green-600 text-sm">
+                      <div className={`flex items-center text-${stat.color}-600 text-xs`}>
                         <TrendingUp className="h-3 w-3 mr-1" />
                         {stat.change}
                       </div>
@@ -164,75 +208,53 @@ function AdminDashboardContent() {
             ))}
           </div>
 
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Quick Actions */}
-            <Card className="shadow-xl border-0 overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-purple-500 to-blue-500 text-white">
-                <CardTitle className="text-white flex items-center">
-                  <Activity className="h-5 w-5 mr-2" />
-                  Quick Actions
-                </CardTitle>
-                <CardDescription className="text-purple-100">Common administrative tasks</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 p-4 lg:p-6">
-                <Link href="/admin/users/create">
-                  <Button className="w-full justify-start bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 transition-all duration-300 transform hover:scale-105">
-                    <Users className="h-4 w-4 mr-2" />
-                    Create New User
-                  </Button>
-                </Link>
-                <Link href="/admin/tasks/create">
-                  <Button className="w-full justify-start bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105">
-                    <ClipboardList className="h-4 w-4 mr-2" />
-                    Assign New Task
-                  </Button>
-                </Link>
-                <Link href="/admin/proxies">
-                  <Button className="w-full justify-start bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 transition-all duration-300 transform hover:scale-105">
-                    <DollarSign className="h-4 w-4 mr-2" />
-                    Manage Proxy Payments
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            {/* Recent Activity */}
-            <Card className="shadow-xl border-0 overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
-                <CardTitle className="text-white flex items-center">
-                  <Activity className="h-5 w-5 mr-2" />
-                  Recent Activity
-                </CardTitle>
-                <CardDescription className="text-orange-100">Latest system activities</CardDescription>
-              </CardHeader>
-              <CardContent className="p-4 lg:p-6">
-                <div className="space-y-4">
-                  {recentActivities.map((activity) => (
-                    <div
-                      key={activity.id}
-                      className="flex items-center space-x-3 p-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg hover:from-blue-50 hover:to-purple-50 transition-all duration-300"
-                    >
-                      <div
-                        className={`w-3 h-3 rounded-full animate-pulse ${
-                          activity.type === "attendance"
-                            ? "bg-green-500"
-                            : activity.type === "proxy"
-                              ? "bg-blue-500"
-                              : activity.type === "task"
-                                ? "bg-yellow-500"
-                                : "bg-purple-500"
-                        }`}
-                      ></div>
-                      <div className="flex-1">
-                        <span className="text-sm font-medium text-gray-900">{activity.action}</span>
-                      </div>
-                      <span className="text-xs text-gray-500">{activity.time}</span>
+          {/* Pending Items Alert */}
+          {(pendingSignups > 0 || pendingTraining > 0 || pendingPayments > 0) && (
+            <Card className="border-l-4 border-l-yellow-500 bg-yellow-50">
+              <CardContent className="p-4">
+                <div className="flex items-center">
+                  <AlertTriangle className="h-5 w-5 text-yellow-600 mr-3" />
+                  <div>
+                    <h3 className="font-semibold text-yellow-800">Pending Items Require Attention</h3>
+                    <div className="text-sm text-yellow-700 mt-1">
+                      {pendingSignups > 0 && <span>{pendingSignups} signup requests • </span>}
+                      {pendingTraining > 0 && <span>{pendingTraining} training requests • </span>}
+                      {pendingPayments > 0 && <span>{pendingPayments} pending payments</span>}
                     </div>
-                  ))}
+                  </div>
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* Management Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {managementCards.map((card, index) => (
+              <Link key={card.title} href={card.href}>
+                <Card className="card-hover border-0 overflow-hidden group cursor-pointer h-full">
+                  <CardHeader className={`bg-gradient-to-r ${card.color} text-white relative`}>
+                    <div className="flex items-center justify-between">
+                      <card.icon className="h-8 w-8 text-white" />
+                      {typeof card.badge === "number" && card.badge > 0 && (
+                        <Badge className="bg-white/20 text-white border-white/30">{card.badge}</Badge>
+                      )}
+                      {typeof card.badge === "string" && (
+                        <Badge className={`${card.badge === "ON" ? "bg-green-500" : "bg-red-500"} text-white border-0`}>
+                          {card.badge}
+                        </Badge>
+                      )}
+                    </div>
+                    <CardTitle className="text-white text-lg">{card.title}</CardTitle>
+                    <CardDescription className="text-white/90 text-sm">{card.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-4">
+                    <div className="text-sm text-gray-600">
+                      Click to manage and configure {card.title.toLowerCase()}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
           </div>
         </div>
       </main>
