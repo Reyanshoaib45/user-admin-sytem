@@ -75,18 +75,23 @@ function CreateUserPageContent() {
     // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 1500))
 
+    // Create new user
     const newUser: User = {
       id: `user-${Date.now()}`,
       name: formData.name,
       email: formData.email,
-      role: formData.role as "admin" | "user" | "all-in-department",
+      role: formData.role as "admin" | "user" | "hr" | "all-in-department",
       department: formData.department,
       timeShift: formData.timeShift as "morning" | "evening" | "night" | "flexible",
       joinDate: new Date().toISOString().split("T")[0],
       status: formData.status as "active" | "inactive",
       disableMessage: formData.disableMessage,
       workingHours: { start: "09:00", end: "17:00" },
-      password: formData.password, // In real app, this would be hashed
+      password: formData.password, // Store password properly
+      isOnboarded: false, // New users need onboarding
+      referralCode: `${formData.name.replace(/\s+/g, "").toUpperCase().slice(0, 4)}${Math.floor(Math.random() * 9999)
+        .toString()
+        .padStart(4, "0")}`,
     }
 
     dispatch({ type: "ADD_USER", payload: newUser })
@@ -213,6 +218,7 @@ function CreateUserPageContent() {
                       <SelectItem value="user">User</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
                       <SelectItem value="all-in-department">All in Department</SelectItem>
+                      <SelectItem value="hr">HR</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

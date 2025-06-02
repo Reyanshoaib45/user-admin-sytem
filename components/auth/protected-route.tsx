@@ -7,11 +7,11 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner"
 
 interface ProtectedRouteProps {
   children: React.ReactNode
-  requiredRole?: "admin" | "user"
+  requiredRole?: "admin" | "user" | "hr"
 }
 
 export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
-  const { isLoading, isAuthenticated } = useAuth(requiredRole)
+  const { isLoading, isAuthenticated, user } = useAuth(requiredRole)
 
   if (isLoading) {
     return (
@@ -24,7 +24,11 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
     )
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !user) {
+    return null // Will redirect to login
+  }
+
+  if (requiredRole && user.role !== requiredRole) {
     return null // Will redirect to login
   }
 

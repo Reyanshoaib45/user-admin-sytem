@@ -38,12 +38,19 @@ export default function LoginPage() {
       return
     }
 
-    // Find user by email and role
-    const foundUser = state.users.find((user) => user.email.toLowerCase() === email.toLowerCase() && user.role === role)
+    // Find user by email first, then validate role and password
+    const foundUser = state.users.find((user) => user.email.toLowerCase() === email.toLowerCase())
 
-    // Check if user exists and validate credentials
+    // Check if user exists
     if (!foundUser) {
       setError("Invalid email or user not found")
+      setIsLoading(false)
+      return
+    }
+
+    // Check if role matches
+    if (foundUser.role !== role) {
+      setError("Invalid role selected for this user")
       setIsLoading(false)
       return
     }
@@ -55,6 +62,7 @@ export default function LoginPage() {
       return
     }
 
+    // Check user status
     if (foundUser.status === "inactive") {
       setError(foundUser.disableMessage || "Your account is inactive. Please contact administrator.")
       setIsLoading(false)

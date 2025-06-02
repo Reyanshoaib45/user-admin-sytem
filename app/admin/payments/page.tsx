@@ -16,7 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { ArrowLeft, Plus, Search, DollarSign, Check, X, CreditCard, Clock, TrendingUp } from "lucide-react"
+import { ArrowLeft, Plus, Search, DollarSign, Check, X, Clock, TrendingUp } from "lucide-react"
 import Link from "next/link"
 import { useApp } from "@/lib/context/app-context"
 import { useAuth } from "@/lib/hooks/use-auth"
@@ -49,12 +49,16 @@ function PaymentsPageContent() {
 
   // Calculate statistics
   const totalPending = state.payments.filter((p) => p.status === "pending").reduce((sum, p) => sum + p.amount, 0)
-
   const totalProcessed = state.payments.filter((p) => p.status === "processed").reduce((sum, p) => sum + p.amount, 0)
-
   const thisMonthPayments = state.payments.filter((p) =>
     p.createdDate.startsWith(new Date().toISOString().slice(0, 7)),
   ).length
+
+  // Proxy-specific statistics
+  const proxyPayments = state.payments.filter((p) => p.type === "proxy")
+  const totalProxyAmount = proxyPayments.reduce((sum, p) => sum + p.amount, 0)
+  const pendingProxyPayments = proxyPayments.filter((p) => p.status === "pending").length
+  const processedProxyPayments = proxyPayments.filter((p) => p.status === "processed").length
 
   const stats = [
     {
@@ -72,18 +76,18 @@ function PaymentsPageContent() {
       count: state.payments.filter((p) => p.status === "processed").length,
     },
     {
-      title: "Total Transactions",
-      value: state.payments.length,
-      icon: CreditCard,
+      title: "Total Proxy Payments",
+      value: `$${totalProxyAmount}`,
+      icon: DollarSign,
       color: "from-blue-500 to-cyan-500",
-      count: thisMonthPayments,
+      count: proxyPayments.length,
     },
     {
-      title: "Average Payment",
-      value: `$${state.payments.length > 0 ? Math.round(state.payments.reduce((sum, p) => sum + p.amount, 0) / state.payments.length) : 0}`,
+      title: "Proxy Rate",
+      value: `$${state.proxyRate}`,
       icon: TrendingUp,
       color: "from-purple-500 to-pink-500",
-      count: state.payments.filter((p) => p.amount > 100).length,
+      count: `${pendingProxyPayments} pending`,
     },
   ]
 
@@ -151,6 +155,21 @@ function PaymentsPageContent() {
         return "bg-red-500"
       default:
         return "bg-gray-500"
+    }
+  }
+
+  const getPaymentTypeColor = (type: string) => {
+    switch (type) {
+      case "proxy":
+        return "bg-blue-100 text-blue-800"
+      case "salary":
+        return "bg-green-100 text-green-800"
+      case "bonus":
+        return "bg-purple-100 text-purple-800"
+      case "overtime":
+        return "bg-orange-100 text-orange-800"
+      default:
+        return "bg-gray-100 text-gray-800"
     }
   }
 
@@ -291,6 +310,37 @@ function PaymentsPageContent() {
             ))}
           </div>
 
+          {/* Proxy Payment Summary */}
+          <Card className="shadow-xl border-0 overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">
+              <CardTitle className="text-white flex items-center">
+                <DollarSign className="h-5 w-5 mr-2" />
+                Proxy Payment Summary
+              </CardTitle>
+              <CardDescription className="text-blue-100">Overview of proxy payment system</CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 lg:p-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">${state.proxyRate}</div>
+                  <div className="text-sm text-gray-500">Rate per proxy</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">{processedProxyPayments}</div>
+                  <div className="text-sm text-gray-500">Processed proxies</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-yellow-600">{pendingProxyPayments}</div>
+                  <div className="text-sm text-gray-500">Pending proxies</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-purple-600">${totalProxyAmount}</div>
+                  <div className="text-sm text-gray-500">Total proxy value</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Payments Table */}
           <Card className="shadow-xl border-0 overflow-hidden">
             <CardHeader className="bg-gradient-to-r from-green-500 to-blue-500 text-white">
@@ -352,11 +402,16 @@ function PaymentsPageContent() {
                           <TableRow key={payment.id} className="hover:bg-gray-50">
                             <TableCell className="font-medium">{payment.userName}</TableCell>
                             <TableCell>
-                              <Badge variant="outline" className="capitalize">
+                              <Badge className={`${getPaymentTypeColor(payment.type)} border-0 capitalize`}>
                                 {payment.type}
                               </Badge>
                             </TableCell>
-                            <TableCell className="font-semibold text-green-600">${payment.amount}</TableCell>
+                            <TableCell className="font-semibold text-green-600">
+                              ${payment.amount}
+                              {payment.type === "proxy" && (
+                                <div className="text-xs text-gray-500">@ ${state.proxyRate}/proxy</div>
+                              )}
+                            </TableCell>
                             <TableCell className="max-w-xs truncate">{payment.description}</TableCell>
                             <TableCell className="capitalize">
                               {payment.paymentMethod?.replace("_", " ") || "Not specified"}

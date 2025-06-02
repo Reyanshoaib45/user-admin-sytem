@@ -43,6 +43,11 @@ function UserDashboardContent() {
     .filter((payment) => payment.type === "task_bonus" && payment.status === "processed")
     .reduce((sum, payment) => sum + payment.amount, 0)
 
+  // Calculate proxy earnings
+  const proxyEarnings = userPayments
+    .filter((payment) => payment.type === "proxy" && payment.status === "processed")
+    .reduce((sum, payment) => sum + payment.amount, 0)
+
   const stats = [
     {
       title: "Active Tasks",
@@ -52,11 +57,11 @@ function UserDashboardContent() {
       change: `${userTasks.filter((t) => t.status === "completed").length} completed`,
     },
     {
-      title: "Pending Payments",
-      value: `$${pendingPayments}`,
+      title: "Proxy Earnings",
+      value: `$${proxyEarnings}`,
       icon: DollarSign,
       href: "/user/payments",
-      change: `${userPayments.filter((p) => p.status === "pending").length} pending`,
+      change: `${userProxyRequests.filter((p) => p.status === "approved").length} approved`,
     },
     {
       title: "Attendance This Month",
@@ -110,7 +115,7 @@ function UserDashboardContent() {
       <main className="max-w-7xl mx-auto py-4 lg:py-8 px-4 sm:px-6 lg:px-8">
         <div className="space-y-6">
           {/* Global Warning Message */}
-          {state.warningMessage && (
+          {state.warningMessage && state.warningMessage.trim() && (
             <Alert className="bg-yellow-50 border-yellow-200">
               <AlertTriangle className="h-4 w-4 text-yellow-600" />
               <AlertDescription className="text-yellow-800 font-medium">{state.warningMessage}</AlertDescription>
@@ -118,7 +123,7 @@ function UserDashboardContent() {
           )}
 
           {/* Personal Warning Message */}
-          {user.personalWarning && (
+          {user.personalWarning && user.personalWarning.trim() && (
             <Alert className="bg-red-50 border-red-200">
               <AlertTriangle className="h-4 w-4 text-red-600" />
               <AlertDescription className="text-red-800 font-medium">
